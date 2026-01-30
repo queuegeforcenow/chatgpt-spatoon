@@ -1,214 +1,166 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8" />
-<title>Mini Splatoon TPS – FINAL</title>
+<meta charset="UTF-8">
+<title>Splatoon3 Mini TPS</title>
 <style>
-  body{margin:0;background:#111;color:#fff;text-align:center}
-  canvas{background:#222;cursor:crosshair;display:block;margin:0 auto}
+body { margin:0; overflow:hidden; background:#111; color:#fff; font-family:sans-serif }
+#ui { position:fixed; top:10px; left:10px; z-index:10 }
+#center { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; font-size:48px }
+canvas { display:block }
 </style>
 </head>
 <body>
 
-<h2 id="cd">READY</h2>
-<p id="ui"></p>
-<canvas id="cv" width="900" height="600"></canvas>
+<div id="ui">
+<div id="timer"></div>
+<div id="hp"></div>
+<div id="cool"></div>
+</div>
+<div id="center"></div>
+<canvas id="c"></canvas>
 
 <script>
-// ================== 基本 ==================
-const cv = document.getElementById("cv");
-const ctx = cv.getContext("2d");
-const TILE = 10, MAP = 140;
+const c = document.getElementById("c"), ctx = c.getContext("2d");
+c.width = innerWidth; c.height = innerHeight;
 
-let map = Array.from({length: MAP}, ()=>Array(MAP).fill(0));
-let keys = {}, mouse = {x:0,y:0};
+let state="ready", cd=3, time=180;
+const keys={};
 
-// 入力
-document.addEventListener("keydown", e=>keys[e.key.toLowerCase()] = true);
-document.addEventListener("keyup",   e=>keys[e.key.toLowerCase()] = false);
-cv.addEventListener("mousemove", e=>{
-  mouse.x = e.offsetX; mouse.y = e.offsetY;
-});
+const player={
+ x:0,y:0, hp:100, speed:2.2, ink:0,
+ squid:false, bombCD:0, sp:0
+};
 
-// ================== カウントダウン（確実） ==================
-let started = false;
-let cdStart = null;
-const CD_SEC = 3;
+const enemy={
+ x:300,y:200, hp:100, speed:1.9, bombCD:0
+};
 
-function handleCountdown(){
-  if(started) return;
-  if(cdStart === null){
-    cdStart = performance.now();
-    document.getElementById("cd").textContent = "READY";
-    return;
+const bullets=[], bombs=[];
+
+onkeydown=e=>keys[e.key]=true;
+onkeyup=e=>keys[e.key]=false;
+
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+
+function spawn(p){p.x=(Math.random()*600-300);p.y=(Math.random()*400-200);p.hp=100}
+
+spawn(player); spawn(enemy);
+
+setInterval(()=>{
+ if(state==="ready"){
+  document.getElementById("center").innerText = cd===3?"READY":cd;
+  cd--; if(cd<0){state="game"; document.getElementById("center").innerText=""; }
+ }
+ else if(state==="game"){
+  time--; if(time<=0) state="end";
+ }
+},1000);
+
+function update(){
+ if(state!=="game") return;
+
+ // プレイヤー移動
+ let dx=(keys.a?-1:0)+(keys.d?1:0);
+ let dy=(keys.w?-1:0)+(keys.s?1:0);
+ let sp = player.squid?3.5:player.speed;
+ player.x+=dx*sp; player.y+=dy*sp;
+
+ // イカ
+ if(keys.Shift) player.squid=true; else player.squid=false;
+
+ // 射撃
+ if(keys[" "]){
+  bullets.push({x:player.x,y:player.y,vx:Math.cos(0)*6,vy:Math.sin(0)*6,from:"p"});
+ }
+
+ // ボム
+ if(keys.b && player.bombCD<=0){
+  bombs.push({x:player.x,y:player.y,t:60,from:"p"});
+  player.bombCD=300;
+ }
+
+ // スペシャル
+ if(keys.e && player.sp>=100){
+  bombs.push({x:player.x,y:player.y,t:20,from:"p",big:true});
+  player.sp=0;
+ }
+
+ // 敵AI（近すぎない）
+ if(dist(player,enemy)>120){
+  let a=Math.atan2(player.y-enemy.y,player.x-enemy.x);
+  enemy.x+=Math.cos(a)*enemy.speed;
+  enemy.y+=Math.sin(a)*enemy.speed;
+ }
+
+ if(enemy.bombCD<=0){
+  bombs.push({x:enemy.x,y:enemy.y,t:60,from:"e"});
+  enemy.bombCD=360;
+ }
+
+ // クール
+ player.bombCD--; enemy.bombCD--;
+ player.sp+=0.1;
+
+ // 当たり
+ bullets.forEach((b,i)=>{
+  if(b.from==="p" && dist(b,enemy)<20){ enemy.hp-=10; bullets.splice(i,1); }
+  if(b.from==="e" && dist(b,player)<20){ player.hp-=10; bullets.splice(i,1); }
+ });
+
+ bombs.forEach((b,i)=>{
+  b.t--;
+  if(b.t<=0){
+   if(b.from==="p" && dist(b,enemy)<60) enemy.hp-=40;
+   if(b.from==="e" && dist(b,player)<60) player.hp-=40;
+   bombs.splice(i,1);
   }
-  const elapsed = (performance.now() - cdStart)/1000;
-  const remain = Math.ceil(CD_SEC - elapsed);
-  if(remain > 0){
-    document.getElementById("cd").textContent = remain;
-  }else{
-    document.getElementById("cd").textContent = "GO!";
-    started = true;
-    setTimeout(()=>document.getElementById("cd").textContent="", 600);
-  }
+ });
+
+ if(enemy.hp<=0) spawn(enemy);
+ if(player.hp<=0) spawn(player);
 }
 
-// ================== エンティティ ==================
-const spawnP = {x:15,y:15}, spawnE = {x:120,y:120};
+function draw(){
+ ctx.clearRect(0,0,c.width,c.height);
 
-let p = {x:spawnP.x,y:spawnP.y,hp:100,dead:false,cd:0,bomb:0,sp:0,ang:0};
-let e = {x:spawnE.x,y:spawnE.y,hp:100,dead:false};
+ // カメラ（TPS）
+ ctx.save();
+ ctx.translate(c.width/2-player.x,c.height/2-player.y);
 
-let shots = [], bombs = [];
+ // プレイヤー
+ ctx.fillStyle=player.squid?"purple":"lime";
+ ctx.beginPath();ctx.arc(player.x,player.y,15,0,7);ctx.fill();
 
-// ================== 射撃 ==================
-cv.addEventListener("click", ()=>{
-  if(!started || p.dead || p.cd>0 || keys["shift"]) return;
-  const ang = Math.atan2(mouse.y - cv.height/2, mouse.x - cv.width/2);
-  shots.push({x:p.x,y:p.y,dx:Math.cos(ang),dy:Math.sin(ang),from:"p"});
-  p.cd = 8;
-});
+ // 敵
+ ctx.fillStyle="red";
+ ctx.beginPath();ctx.arc(enemy.x,enemy.y,15,0,7);ctx.fill();
 
-// ================== ボム ==================
-function throwBomb(who){
-  if(who.bomb>0) return;
-  bombs.push({x:who.x,y:who.y,t:50,from:(who===p?"p":"e")});
-  who.bomb = 180;
+ // 弾
+ ctx.fillStyle="#fff";
+ bullets.forEach(b=>{ctx.fillRect(b.x,b.y,4,4)});
+
+ // ボム
+ ctx.fillStyle="orange";
+ bombs.forEach(b=>ctx.beginPath(),ctx.arc(b.x,b.y,b.big?40:20,0,7),ctx.fill());
+
+ // 矢印
+ let a=Math.atan2(enemy.y-player.y,enemy.x-player.x);
+ ctx.strokeStyle="yellow";
+ ctx.beginPath();
+ ctx.moveTo(player.x,player.y);
+ ctx.lineTo(player.x+Math.cos(a)*80,player.y+Math.sin(a)*80);
+ ctx.stroke();
+
+ ctx.restore();
+
+ document.getElementById("timer").innerText=`TIME ${Math.floor(time/60)}:${time%60}`;
+ document.getElementById("hp").innerText=`HP ${player.hp}`;
+ document.getElementById("cool").innerText=`BOMB CD ${Math.max(0,player.bombCD)}`;
 }
 
-// ================== スペシャル（スーパー着地） ==================
-document.addEventListener("keydown", e=>{
-  if(e.key==="e" && p.sp>=100){
-    for(let y=-6;y<=6;y++)for(let x=-6;x<=6;x++){
-      const px=Math.floor(p.x+x), py=Math.floor(p.y+y);
-      if(map[py]?.[px]!=null) map[py][px]=1;
-    }
-    p.sp = 0;
-  }
-});
-
-// ================== 衝突（重なり防止） ==================
-function collide(a,b,min=0.9){
-  const dx=a.x-b.x, dy=a.y-b.y;
-  const d=Math.hypot(dx,dy);
-  if(d<min && d>0){
-    const push=(min-d)/2;
-    a.x+=dx/d*push; a.y+=dy/d*push;
-    b.x-=dx/d*push; b.y-=dy/d*push;
-  }
-}
-
-// ================== 更新 ==================
-function movePlayer(){
-  const spd = keys["shift"] ? 0.16 : 0.10; // イカ高速
-  if(keys["w"]) p.y-=spd;
-  if(keys["s"]) p.y+=spd;
-  if(keys["a"]) p.x-=spd;
-  if(keys["d"]) p.x+=spd;
-  p.x=Math.max(0,Math.min(MAP-1,p.x));
-  p.y=Math.max(0,Math.min(MAP-1,p.y));
-}
-
-function updateShots(){
-  shots = shots.filter(s=>{
-    s.x+=s.dx*0.7; s.y+=s.dy*0.7;
-    const t = s.from==="p" ? e : p;
-    if(Math.hypot(s.x-t.x,s.y-t.y) < 0.6){
-      t.hp -= 25;
-      return false;
-    }
-    return s.x>=0&&s.y>=0&&s.x<MAP&&s.y<MAP;
-  });
-}
-
-function updateBombs(){
-  bombs = bombs.filter(b=>{
-    b.t--;
-    if(b.t<=0){
-      for(let i=0;i<40;i++){
-        const ang=Math.random()*Math.PI*2, r=Math.random()*4;
-        const ex=b.x+Math.cos(ang)*r, ey=b.y+Math.sin(ang)*r;
-        if(map[Math.floor(ey)]?.[Math.floor(ex)]!=null)
-          map[Math.floor(ey)][Math.floor(ex)] = b.from==="p"?1:2;
-      }
-      const t=b.from==="p"?e:p;
-      if(Math.hypot(b.x-t.x,b.y-t.y)<4) t.hp-=50;
-      return false;
-    }
-    return true;
-  });
-}
-
-function respawn(o,sp){
-  o.x=sp.x; o.y=sp.y; o.hp=100; o.dead=false;
-}
-
-// ================== UI（敵矢印） ==================
-function drawArrow(){
-  const cx=cv.width/2, cy=cv.height/2;
-  const ang=Math.atan2(e.y-p.y, e.x-p.x);
-  ctx.save();
-  ctx.translate(cx,cy);
-  ctx.rotate(ang);
-  ctx.fillStyle="yellow";
-  ctx.beginPath();
-  ctx.moveTo(35,0); ctx.lineTo(15,-6); ctx.lineTo(15,6);
-  ctx.closePath(); ctx.fill();
-  ctx.restore();
-}
-
-// ================== ループ ==================
 function loop(){
-  handleCountdown();
-  ctx.clearRect(0,0,cv.width,cv.height);
-
-  if(started){
-    if(!p.dead){
-      movePlayer();
-      p.ang = Math.atan2(mouse.y - cv.height/2, mouse.x - cv.width/2);
-      map[Math.floor(p.y)][Math.floor(p.x)] = 1;
-      p.sp = Math.min(100, p.sp + 0.05);
-      if(keys["q"]) throwBomb(p);
-    }
-    if(!e.dead){
-      // 敵：プレイヤー同速
-      e.x += Math.sign(p.x-e.x)*0.10;
-      e.y += Math.sign(p.y-e.y)*0.10;
-      if(Math.random()<0.01) throwBomb(e);
-      map[Math.floor(e.y)][Math.floor(e.x)] = 2;
-    }
-    collide(p,e);
-    updateShots();
-    updateBombs();
-  }
-
-  if(p.hp<=0 && !p.dead){ p.dead=true; setTimeout(()=>respawn(p,spawnP),2000); }
-  if(e.hp<=0 && !e.dead){ e.dead=true; setTimeout(()=>respawn(e,spawnE),2000); }
-
-  // 背後TPSカメラ
-  const camX = p.x*TILE - cv.width/2 - Math.cos(p.ang)*40;
-  const camY = p.y*TILE - cv.height/2 - Math.sin(p.ang)*40;
-
-  // 描画
-  for(let y=0;y<MAP;y++)for(let x=0;x<MAP;x++){
-    if(map[y][x]===0) continue;
-    ctx.fillStyle = map[y][x]===1 ? "#00aaff" : "#ff5555";
-    ctx.fillRect(x*TILE-camX, y*TILE-camY, TILE, TILE);
-  }
-  ctx.fillStyle="#fff";
-  ctx.fillRect(p.x*TILE-camX, p.y*TILE-camY, TILE, TILE);
-  ctx.fillStyle="red";
-  ctx.fillRect(e.x*TILE-camX, e.y*TILE-camY, TILE, TILE);
-
-  drawArrow();
-
-  p.cd=Math.max(0,p.cd-1);
-  p.bomb=Math.max(0,p.bomb-1);
-
-  document.getElementById("ui").textContent =
-    `HP:${p.hp}  ボムCT:${p.bomb}  SP:${Math.floor(p.sp)}`;
-
-  requestAnimationFrame(loop);
+ update(); draw(); requestAnimationFrame(loop);
 }
 loop();
 </script>
