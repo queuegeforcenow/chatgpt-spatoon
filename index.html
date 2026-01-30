@@ -2,110 +2,75 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Splatoon Clone V2 - Bomb & Special</title>
+    <title>Splatoon Clone V3 - Fixed Start</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; user-select: none; background: #000; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; user-select: none; background: #222; }
         
-        /* UIレイヤー */
+        /* ゲーム内UI (HUD) */
         #ui-layer {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none; /* UIの後ろのゲーム画面を操作可能にする */
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; /* ゲーム操作を邪魔しない */
+            z-index: 10;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            z-index: 10;
         }
 
-        /* 上部ヘッダー */
         #header {
-            display: flex;
-            justify-content: space-between;
-            padding: 20px;
-            font-size: 24px;
-            font-weight: bold;
-            color: white;
+            display: flex; justify-content: space-between; padding: 20px;
+            font-size: 24px; font-weight: bold; color: white;
             text-shadow: 2px 2px 0 #000;
         }
 
-        /* レティクル（照準） */
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255, 255, 255, 0.8);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 5;
-        }
-
-        /* ゲージ類（右下） */
         #status-panel {
-            position: absolute;
-            bottom: 30px;
-            right: 30px;
-            text-align: right;
-            color: white;
-            text-shadow: 1px 1px 2px black;
+            position: absolute; bottom: 30px; right: 30px;
+            text-align: right; color: white; text-shadow: 1px 1px 2px black;
         }
         .gauge-container {
-            margin-top: 10px;
-            background: rgba(0,0,0,0.5);
-            width: 200px;
-            height: 20px;
-            border-radius: 10px;
-            overflow: hidden;
-            border: 2px solid white;
+            margin-top: 5px; background: rgba(0,0,0,0.5);
+            width: 200px; height: 15px; border: 2px solid white;
+            border-radius: 10px; overflow: hidden;
         }
         .gauge-fill { height: 100%; transition: width 0.1s; }
         #ink-bar { background: #00FFFF; width: 100%; }
         #special-bar { background: linear-gradient(90deg, #ffcc00, #ff6600); width: 0%; }
 
-        /* スタート画面・ゲームオーバー画面（最前面） */
-        #overlay-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            z-index: 100; /* 確実に一番手前にする */
-            pointer-events: auto; /* ここだけクリック有効 */
+        #crosshair {
+            position: absolute; top: 50%; left: 50%;
+            width: 20px; height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
         }
+
+        /* スタート画面 / リザルト画面 (最前面) */
+        #overlay-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: white;
+            z-index: 9999; /* 確実に一番手前に */
+            cursor: pointer; /* クリックできることを示す */
+        }
+
+        #loading-msg { color: #ff0055; font-size: 18px; max-width: 600px; text-align: center; margin-bottom: 20px; }
         
         button {
-            margin-top: 20px;
-            padding: 15px 40px;
-            font-size: 24px;
-            font-weight: bold;
-            color: white;
-            background: #ff0055;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 4px 0 #990033;
-            transition: transform 0.1s;
+            margin-top: 20px; padding: 15px 50px;
+            font-size: 24px; font-weight: bold;
+            color: white; background: #ff0055;
+            border: none; border-radius: 50px;
+            pointer-events: none; /* 親divのクリックイベントで処理するため無効化 */
         }
-        button:active { transform: translateY(4px); box-shadow: none; }
         
         .key-guide {
-            margin-top: 30px;
-            font-size: 16px;
-            line-height: 1.8;
-            background: rgba(255,255,255,0.1);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: left;
+            margin-top: 30px; font-size: 16px; line-height: 1.8;
+            background: rgba(255,255,255,0.1); padding: 20px;
+            border-radius: 10px; text-align: left;
+            pointer-events: none;
         }
         .key { display: inline-block; background: #fff; color: #333; padding: 2px 6px; border-radius: 4px; font-weight: bold; margin: 0 4px; }
     </style>
@@ -117,11 +82,10 @@
         <div id="timer">Time: 3:00</div>
         <div id="score">Score: 0</div>
     </div>
-    
     <div id="status-panel">
-        <div>INK TANK</div>
+        <div>INK</div>
         <div class="gauge-container"><div id="ink-bar" class="gauge-fill"></div></div>
-        <div style="margin-top:10px;">SPECIAL (Key: F)</div>
+        <div style="margin-top:5px;">SPECIAL (Key: F)</div>
         <div class="gauge-container"><div id="special-bar" class="gauge-fill"></div></div>
     </div>
 </div>
@@ -129,15 +93,23 @@
 <div id="crosshair"></div>
 
 <div id="overlay-screen">
-    <h1 id="screen-title" style="font-size: 60px; margin: 0; text-shadow: 4px 4px 0 #ff0055;">SPLAT SHOOTER</h1>
-    <div class="key-guide">
-        <div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> : 移動</div>
-        <div><span class="key">SPACE</span> : ジャンプ</div>
-        <div><span class="key">左クリック</span> : インクショット</div>
-        <div><span class="key">R</span> : スプラッシュボム (インク消費大)</div>
-        <div><span class="key">F</span> : <strong>スーパー着地</strong> (ゲージMAX時)</div>
+    <div id="loading-msg">
+        読み込み中...<br>
+        (もしこの画面のまま止まる場合、Chromeなどがローカルファイルの実行をブロックしています。<br>
+        EdgeまたはFirefoxで開くか、ローカルサーバー経由で実行してください。)
     </div>
-    <button id="start-btn">GAME START</button>
+    
+    <h1 id="screen-title" style="display:none; font-size: 60px; margin: 0; text-shadow: 4px 4px 0 #ff0055;">SPLAT SHOOTER</h1>
+    
+    <div id="content-area" style="display:none; text-align:center;">
+        <button id="start-btn">CLICK SCREEN TO START</button>
+        <div class="key-guide">
+            <div><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> 移動 | <span class="key">SPACE</span> ジャンプ</div>
+            <div><span class="key">左クリック</span> インク発射</div>
+            <div><span class="key">R</span> ボム (インク60%消費)</div>
+            <div><span class="key">F</span> スーパー着地 (SPゲージMAX時)</div>
+        </div>
+    </div>
 </div>
 
 <script type="importmap">
@@ -153,86 +125,77 @@
     import * as THREE from 'three';
     import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
-    // --- 定数設定 ---
+    // --- 読み込み成功時の処理 ---
+    document.getElementById('loading-msg').style.display = 'none';
+    document.getElementById('screen-title').style.display = 'block';
+    document.getElementById('content-area').style.display = 'block';
+
+    // --- 定数 ---
     const CONFIG = {
         PLAYER_COLOR: 0x00FFFF,
         ENEMY_COLOR: 0xFF0055,
         GAME_TIME: 180,
         GRAVITY: 30.0,
-        JUMP_POWER: 15.0,
-        SPEED: 10.0,
         INK_MAX: 100,
-        INK_RECOVERY: 0.5,
-        INK_SHOT_COST: 2,
-        INK_BOMB_COST: 60,
-        SPECIAL_CHARGE_RATE: 0.1, // 毎フレーム増加量
+        INK_RECOVERY: 0.4,
         SPECIAL_MAX: 100
     };
 
-    // --- グローバル変数 ---
+    // --- 変数 ---
     let camera, scene, renderer, controls;
     let playerMesh;
-    
-    // ゲーム状態
     let gameState = {
         active: false,
         timeLeft: CONFIG.GAME_TIME,
         score: 0,
         ink: CONFIG.INK_MAX,
-        special: 0,
-        isInvincible: false
+        special: 0
     };
-
-    // 物理・移動系
+    
+    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
     let velocity = new THREE.Vector3();
     let direction = new THREE.Vector3();
-    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
     let prevTime = performance.now();
-
-    // オブジェクト管理配列
+    
     const bullets = [];
     const enemies = [];
-    const inks = []; // 地面の塗り
+    const inks = [];
     const bombs = [];
-
-    // スーパー着地用フラグ
+    
     let isSuperLanding = false;
-    let superLandingPhase = 0; // 0:なし, 1:上昇, 2:滞空, 3:降下
+    let superLandingPhase = 0;
+    
+    // インターバル管理
+    let timerInterval, enemyInterval;
 
     // DOM要素
     const ui = {
+        overlay: document.getElementById('overlay-screen'),
+        title: document.getElementById('screen-title'),
+        btn: document.getElementById('start-btn'),
         timer: document.getElementById('timer'),
         score: document.getElementById('score'),
         inkBar: document.getElementById('ink-bar'),
-        specialBar: document.getElementById('special-bar'),
-        overlay: document.getElementById('overlay-screen'),
-        title: document.getElementById('screen-title'),
-        startBtn: document.getElementById('start-btn')
+        specialBar: document.getElementById('special-bar')
     };
-
-    // タイマーID
-    let intervals = {};
 
     init();
     animate();
 
     function init() {
-        // シーン
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x88ccff);
         scene.fog = new THREE.Fog(0x88ccff, 10, 80);
 
-        // カメラ
         camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.y = 2;
 
-        // レンダラー
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // 照明
+        // ライト
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
         scene.add(hemiLight);
         const dirLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -245,55 +208,57 @@
         scene.add(dirLight);
 
         // 地面
-        const floorGeo = new THREE.PlaneGeometry(100, 100);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.8 });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
+        const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 100),
+            new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.8 })
+        );
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         scene.add(floor);
 
-        // 壁・障害物
+        // 障害物
         addBlock(5, 1.5, 5, 4, 3, 4);
         addBlock(-10, 2, -10, 6, 4, 6);
-        addBlock(15, 1, -5, 2, 2, 10);
         addBlock(0, 3, -20, 20, 6, 2);
 
-        // プレイヤーアバター（カメラに追従）
-        const pGeo = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
-        const pMat = new THREE.MeshStandardMaterial({ color: CONFIG.PLAYER_COLOR });
-        playerMesh = new THREE.Mesh(pGeo, pMat);
+        // プレイヤー
+        playerMesh = new THREE.Mesh(
+            new THREE.CapsuleGeometry(0.5, 1, 4, 8),
+            new THREE.MeshStandardMaterial({ color: CONFIG.PLAYER_COLOR })
+        );
         playerMesh.castShadow = true;
         scene.add(playerMesh);
-
-        // 武器モデル
-        const gunGeo = new THREE.BoxGeometry(0.25, 0.25, 0.8);
-        const gunMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-        const gun = new THREE.Mesh(gunGeo, gunMat);
-        gun.position.set(0.3, 0.3, 0.4);
+        
+        // 武器
+        const gun = new THREE.Mesh(
+            new THREE.BoxGeometry(0.2, 0.2, 0.6),
+            new THREE.MeshStandardMaterial({ color: 0x333333 })
+        );
+        gun.position.set(0.3, 0.3, 0.5);
         playerMesh.add(gun);
 
-        // コントロール
+        // --- 重要: コントロール設定 ---
         controls = new PointerLockControls(camera, document.body);
 
-        // イベント設定
-        ui.startBtn.addEventListener('click', () => {
-            controls.lock(); // ロック要求
+        // 画面全体をクリックしたらスタートするように変更
+        ui.overlay.addEventListener('click', () => {
+            controls.lock();
         });
 
         controls.addEventListener('lock', () => {
             ui.overlay.style.display = 'none';
-            if (!gameState.active && gameState.timeLeft === CONFIG.GAME_TIME) {
+            if(!gameState.active && gameState.timeLeft === CONFIG.GAME_TIME) {
                 startGame();
-            } else if (!gameState.active && gameState.timeLeft > 0) {
-                // ポーズからの復帰なら何もしない（今回はポーズ非対応だが予備）
-                gameState.active = true;
+            } else if(!gameState.active && gameState.timeLeft > 0) {
+                gameState.active = true; // ポーズ復帰
             }
         });
 
         controls.addEventListener('unlock', () => {
-            if (gameState.timeLeft > 0) {
+            if(gameState.timeLeft > 0) {
+                gameState.active = false;
                 ui.title.innerText = "PAUSED";
-                ui.startBtn.innerText = "RESUME";
+                ui.btn.innerText = "CLICK TO RESUME";
                 ui.overlay.style.display = 'flex';
             }
         });
@@ -305,9 +270,7 @@
     }
 
     function addBlock(x, y, z, w, h, d) {
-        const geo = new THREE.BoxGeometry(w, h, d);
-        const mat = new THREE.MeshStandardMaterial({ color: 0x999999 });
-        const mesh = new THREE.Mesh(geo, mat);
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x999999 }));
         mesh.position.set(x, y, z);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
@@ -315,69 +278,56 @@
     }
 
     function startGame() {
-        // リセット
         gameState.active = true;
         gameState.timeLeft = CONFIG.GAME_TIME;
         gameState.score = 0;
         gameState.ink = CONFIG.INK_MAX;
         gameState.special = 0;
         
-        // 敵のクリーンアップ
+        // 敵・インクのリセット
         enemies.forEach(e => scene.remove(e));
         enemies.length = 0;
-        // インクのクリーンアップ
         inks.forEach(i => scene.remove(i));
         inks.length = 0;
-
-        // ループ開始
-        if(intervals.enemy) clearInterval(intervals.enemy);
-        if(intervals.timer) clearInterval(intervals.timer);
-
-        intervals.enemy = setInterval(spawnEnemy, 2500);
-        intervals.timer = setInterval(() => {
+        
+        // インターバル
+        if(timerInterval) clearInterval(timerInterval);
+        if(enemyInterval) clearInterval(enemyInterval);
+        
+        enemyInterval = setInterval(spawnEnemy, 2500);
+        timerInterval = setInterval(() => {
             if(!gameState.active) return;
             gameState.timeLeft--;
             updateHUD();
-            if(gameState.timeLeft <= 0) gameOver(true);
+            if(gameState.timeLeft <= 0) endGame(true);
         }, 1000);
     }
 
-    function gameOver(win) {
+    function endGame(win) {
         gameState.active = false;
-        clearInterval(intervals.enemy);
-        clearInterval(intervals.timer);
         controls.unlock();
+        clearInterval(enemyInterval);
+        clearInterval(timerInterval);
         
-        ui.title.innerHTML = win ? "TIME UP!" : "GAME OVER";
-        ui.title.style.color = win ? "#00FFFF" : "#FF0055";
-        ui.startBtn.innerText = "RETRY";
+        ui.title.innerText = win ? "TIME UP!" : "GAME OVER";
+        ui.btn.innerText = "CLICK TO RETRY";
+        ui.score.innerText = `Final Score: ${gameState.score}`;
+        ui.overlay.style.display = 'flex';
         
-        // スコア表示をHTMLに追加
-        const resultText = document.createElement('div');
-        resultText.innerHTML = `Final Score: ${gameState.score}`;
-        resultText.style.fontSize = "40px";
-        resultText.style.marginBottom = "20px";
-        
-        // 既存のキーガイド等を隠すなどの処理は省略し、再利用のためにボタンクリックでリロードする簡易実装にする手もあるが、
-        // ここでは状態をリセットする形をとる。
-        ui.startBtn.onclick = () => location.reload(); 
+        // 次回のクリックでリロード
+        ui.overlay.onclick = () => location.reload();
     }
 
-    // --- 操作入力 ---
+    // --- 入力処理 ---
     function onKeyDown(e) {
         switch(e.code) {
             case 'KeyW': moveForward = true; break;
             case 'KeyA': moveLeft = true; break;
             case 'KeyS': moveBackward = true; break;
             case 'KeyD': moveRight = true; break;
-            case 'Space': 
-                if(canJump && !isSuperLanding) {
-                    velocity.y += CONFIG.JUMP_POWER;
-                    canJump = false;
-                }
-                break;
+            case 'Space': if(canJump && !isSuperLanding) { velocity.y += 15; canJump = false; } break;
             case 'KeyR': throwBomb(); break;
-            case 'KeyF': triggerSuperLanding(); break;
+            case 'KeyF': triggerSpecial(); break;
         }
     }
     function onKeyUp(e) {
@@ -390,162 +340,96 @@
     }
     function onMouseDown(e) {
         if(!gameState.active || !controls.isLocked) return;
-        if(e.button === 0) shootInk(); // 左クリック
+        if(e.button === 0) shootInk();
     }
 
-    // --- アクション機能 ---
-    
+    // --- アクション ---
     function shootInk() {
-        if(gameState.ink < CONFIG.INK_SHOT_COST) return; // インク不足
-        gameState.ink -= CONFIG.INK_SHOT_COST;
-
-        const geo = new THREE.SphereGeometry(0.2);
-        const mat = new THREE.MeshBasicMaterial({ color: CONFIG.PLAYER_COLOR });
-        const bullet = new THREE.Mesh(geo, mat);
-
-        // カメラ位置から発射
-        const camDir = new THREE.Vector3();
-        camera.getWorldDirection(camDir);
+        if(gameState.ink < 2) return;
+        gameState.ink -= 2;
         
-        bullet.position.copy(playerMesh.position);
-        bullet.position.y += 0.5; // 銃口の高さ補正
-        bullet.position.add(camDir.clone().multiplyScalar(1.0)); // 少し前へ
-
-        bullet.userData = { 
-            vel: camDir.multiplyScalar(40), 
-            life: 60,
-            type: 'shot'
-        };
+        const bullet = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({ color: CONFIG.PLAYER_COLOR }));
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
         
+        bullet.position.copy(playerMesh.position).add(new THREE.Vector3(0, 0.5, 0)).add(dir.clone().multiplyScalar(1));
+        bullet.userData = { vel: dir.multiplyScalar(40), life: 60 };
         scene.add(bullet);
         bullets.push(bullet);
     }
 
     function throwBomb() {
-        if(gameState.ink < CONFIG.INK_BOMB_COST) return;
-        gameState.ink -= CONFIG.INK_BOMB_COST;
-
-        // 三角錐（ピラミッド）をボムとする
-        const geo = new THREE.ConeGeometry(0.3, 0.5, 4);
-        const mat = new THREE.MeshStandardMaterial({ color: 0x008888, emissive: 0x004444 });
-        const bomb = new THREE.Mesh(geo, mat);
-
-        const camDir = new THREE.Vector3();
-        camera.getWorldDirection(camDir);
-
-        bomb.position.copy(playerMesh.position);
-        bomb.position.y += 1.0;
-        bomb.position.add(camDir.clone().multiplyScalar(0.5));
-
-        // 投げ上げ角度をつける
-        const throwDir = camDir.clone().normalize();
-        throwDir.y += 0.5; // 上向き補正
-        throwDir.normalize();
-
-        bomb.userData = {
-            vel: throwDir.multiplyScalar(25),
-            timer: 0, // 着地してからのタイマー
-            state: 'flying' 
-        };
-
+        if(gameState.ink < 60) return;
+        gameState.ink -= 60;
+        
+        const bomb = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.5, 4), new THREE.MeshStandardMaterial({ color: 0x008888, emissive: 0x004444 }));
+        const dir = new THREE.Vector3();
+        camera.getWorldDirection(dir);
+        
+        bomb.position.copy(playerMesh.position).add(new THREE.Vector3(0, 1, 0)).add(dir.clone().multiplyScalar(0.5));
+        
+        const throwDir = dir.normalize();
+        throwDir.y += 0.5;
+        bomb.userData = { vel: throwDir.multiplyScalar(25), state: 'flying', timer: 0 };
+        
         scene.add(bomb);
         bombs.push(bomb);
     }
 
-    function triggerSuperLanding() {
-        // スペシャルゲージMAXかつ接地時のみ
-        if(gameState.special < CONFIG.SPECIAL_MAX || !canJump || isSuperLanding) return;
-        
+    function triggerSpecial() {
+        if(gameState.special < CONFIG.SPECIAL_MAX || isSuperLanding || !canJump) return;
         gameState.special = 0;
         isSuperLanding = true;
-        superLandingPhase = 1; // 上昇開始
-        velocity.y = 50; // 超ジャンプ
+        superLandingPhase = 1;
+        velocity.y = 50;
         canJump = false;
-        
-        // プレイヤーを光らせる
         playerMesh.material.emissive = new THREE.Color(0xFFFFFF);
-        playerMesh.material.emissiveIntensity = 0.5;
-    }
-
-    function performExplosion(pos, radius, paintCount) {
-        // 爆発エフェクト（簡易：大きな球が一瞬出る）
-        const boomGeo = new THREE.SphereGeometry(radius, 16, 16);
-        const boomMat = new THREE.MeshBasicMaterial({ color: CONFIG.PLAYER_COLOR, transparent: true, opacity: 0.5 });
-        const boom = new THREE.Mesh(boomGeo, boomMat);
-        boom.position.copy(pos);
-        scene.add(boom);
-
-        // 10フレーム後に消す
-        setTimeout(() => scene.remove(boom), 150);
-
-        // 塗り発生
-        for(let i=0; i<paintCount; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = Math.random() * radius;
-            createInk(pos.x + Math.cos(angle)*dist, pos.z + Math.sin(angle)*dist, 2.5);
-        }
-
-        // 敵へのダメージ判定
-        for (let i = enemies.length - 1; i >= 0; i--) {
-            const e = enemies[i];
-            if (e.position.distanceTo(pos) < radius + 1) {
-                defeatEnemy(i);
-            }
-        }
     }
 
     function spawnEnemy() {
         if(!gameState.active) return;
-        
-        // プレイヤーから離れた位置
         const angle = Math.random() * Math.PI * 2;
         const dist = 20 + Math.random() * 20;
-        const x = playerMesh.position.x + Math.cos(angle) * dist;
-        const z = playerMesh.position.z + Math.sin(angle) * dist;
-
-        const geo = new THREE.BoxGeometry(1, 1, 1);
-        const mat = new THREE.MeshStandardMaterial({ color: CONFIG.ENEMY_COLOR });
-        const enemy = new THREE.Mesh(geo, mat);
-        enemy.position.set(x, 0.5, z);
+        const enemy = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: CONFIG.ENEMY_COLOR }));
+        enemy.position.set(playerMesh.position.x + Math.cos(angle)*dist, 0.5, playerMesh.position.z + Math.sin(angle)*dist);
         enemy.castShadow = true;
-        enemy.userData = { hp: 3, speed: 4 + Math.random() * 2 };
-        
+        enemy.userData = { hp: 3 };
         scene.add(enemy);
         enemies.push(enemy);
     }
 
-    function createInk(x, z, size = 1.5) {
-        const geo = new THREE.CircleGeometry(size, 8);
-        const mat = new THREE.MeshBasicMaterial({ color: CONFIG.PLAYER_COLOR, transparent: true, opacity: 0.8, depthTest: false });
-        const ink = new THREE.Mesh(geo, mat);
+    function createInk(x, z, size) {
+        const ink = new THREE.Mesh(new THREE.CircleGeometry(size, 8), new THREE.MeshBasicMaterial({ color: CONFIG.PLAYER_COLOR, transparent: true, opacity: 0.8, depthTest: false }));
         ink.rotation.x = -Math.PI / 2;
-        ink.position.set(x, 0.05, z); // z-fighting防止のため少し浮かせる
-        
+        ink.position.set(x, 0.05, z);
         scene.add(ink);
         inks.push(ink);
+        if(inks.length > 200) scene.remove(inks.shift());
         
-        // パフォーマンス制限（古いインクを消す）
-        if(inks.length > 150) {
-            scene.remove(inks.shift());
-        }
-
         gameState.score += 10;
-        // スペシャルゲージ増加
-        if(gameState.special < CONFIG.SPECIAL_MAX) {
-            gameState.special += 2;
-        }
+        if(gameState.special < CONFIG.SPECIAL_MAX) gameState.special += 2;
         updateHUD();
     }
 
-    function defeatEnemy(index) {
-        const e = enemies[index];
-        scene.remove(e);
-        enemies.splice(index, 1);
-        gameState.score += 100;
+    function explode(pos, radius) {
+        const boom = new THREE.Mesh(new THREE.SphereGeometry(radius, 16, 16), new THREE.MeshBasicMaterial({ color: CONFIG.PLAYER_COLOR, transparent: true, opacity: 0.5 }));
+        boom.position.copy(pos);
+        scene.add(boom);
+        setTimeout(() => scene.remove(boom), 150);
         
-        // 敵インク飛散演出
-        performExplosion(e.position, 3, 5);
-        updateHUD();
+        for(let i=0; i<10; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const d = Math.random() * radius;
+            createInk(pos.x + Math.cos(a)*d, pos.z + Math.sin(a)*d, 2);
+        }
+        
+        for(let i=enemies.length-1; i>=0; i--) {
+            if(enemies[i].position.distanceTo(pos) < radius + 1) {
+                scene.remove(enemies[i]);
+                enemies.splice(i, 1);
+                gameState.score += 100;
+            }
+        }
     }
 
     function updateHUD() {
@@ -553,18 +437,10 @@
         const s = gameState.timeLeft % 60;
         ui.timer.innerText = `Time: ${m}:${s.toString().padStart(2, '0')}`;
         ui.score.innerText = `Score: ${gameState.score}`;
-        
         ui.inkBar.style.width = `${gameState.ink}%`;
         ui.specialBar.style.width = `${gameState.special}%`;
         
-        // スペシャル満タン時の演出
-        if (gameState.special >= CONFIG.SPECIAL_MAX) {
-            ui.specialBar.parentElement.style.borderColor = "#FFFF00";
-            ui.specialBar.style.boxShadow = "0 0 10px gold";
-        } else {
-            ui.specialBar.parentElement.style.borderColor = "white";
-            ui.specialBar.style.boxShadow = "none";
-        }
+        ui.specialBar.parentElement.style.borderColor = gameState.special >= CONFIG.SPECIAL_MAX ? "#FFFF00" : "white";
     }
 
     function onWindowResize() {
@@ -573,177 +449,116 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    // --- メインループ ---
     function animate() {
         requestAnimationFrame(animate);
-
         const time = performance.now();
-        const delta = Math.min((time - prevTime) / 1000, 0.1); // 最大0.1秒制限
+        const delta = Math.min((time - prevTime) / 1000, 0.1);
         prevTime = time;
 
-        if (!gameState.active) {
+        if(!gameState.active) {
             renderer.render(scene, camera);
             return;
         }
 
-        // 1. インク自然回復
-        if(gameState.ink < CONFIG.INK_MAX) {
-            gameState.ink += CONFIG.INK_RECOVERY;
-            if(gameState.ink > CONFIG.INK_MAX) gameState.ink = CONFIG.INK_MAX;
-            updateHUD();
-        }
+        // インク回復
+        if(gameState.ink < CONFIG.INK_MAX) gameState.ink += CONFIG.INK_RECOVERY;
+        updateHUD();
 
-        // 2. プレイヤー移動物理
-        if (controls.isLocked) {
-            // 減速
+        // 移動処理
+        if(controls.isLocked) {
             velocity.x -= velocity.x * 10.0 * delta;
             velocity.z -= velocity.z * 10.0 * delta;
             velocity.y -= CONFIG.GRAVITY * delta;
 
-            // 入力ベクトル
             direction.z = Number(moveForward) - Number(moveBackward);
             direction.x = Number(moveRight) - Number(moveLeft);
             direction.normalize();
 
-            // スーパー着地制御
-            if (isSuperLanding) {
-                // 空中で静止→急降下
-                if(superLandingPhase === 1) { // 上昇中
-                    if(velocity.y < 0) {
-                        superLandingPhase = 2; // 頂点到達
-                        velocity.y = 0;
-                        setTimeout(() => { // 少し滞空して急降下
-                             if(isSuperLanding) {
-                                 superLandingPhase = 3;
-                                 velocity.y = -100; // 超高速落下
-                             }
-                        }, 300);
-                    }
+            if(isSuperLanding) {
+                if(superLandingPhase === 1 && velocity.y < 0) {
+                    superLandingPhase = 2; velocity.y = 0;
+                    setTimeout(() => { if(isSuperLanding) { superLandingPhase = 3; velocity.y = -100; } }, 300);
                 }
             } else {
-                // 通常移動
-                if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+                if(moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
+                if(moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
             }
 
-            // 移動適用
             controls.moveRight(-velocity.x * delta);
             controls.moveForward(-velocity.z * delta);
             camera.position.y += velocity.y * delta;
 
-            // 接地判定
-            if (camera.position.y < 2) {
-                // スーパー着地着弾
-                if (isSuperLanding && superLandingPhase === 3) {
-                    performExplosion(playerMesh.position, 8, 20); // 大爆発
+            if(camera.position.y < 2) {
+                if(isSuperLanding && superLandingPhase === 3) {
+                    explode(playerMesh.position, 10);
                     isSuperLanding = false;
                     playerMesh.material.emissiveIntensity = 0;
                 }
-
-                velocity.y = 0;
-                camera.position.y = 2;
-                canJump = true;
+                velocity.y = 0; camera.position.y = 2; canJump = true;
             }
-
-            // プレイヤーメッシュの同期（TPS視点用）
-            const camForward = new THREE.Vector3();
-            camera.getWorldDirection(camForward);
-            camForward.y = 0; 
-            camForward.normalize();
-
-            playerMesh.position.copy(camera.position);
-            playerMesh.position.sub(camForward.multiplyScalar(0.5)); // カメラの少し後ろ
-            playerMesh.position.y -= 1.0; // 地面に足をつける
-            playerMesh.rotation.y = Math.atan2(camForward.x, camForward.z);
+            
+            // プレイヤー位置同期
+            const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir); camDir.y = 0; camDir.normalize();
+            playerMesh.position.copy(camera.position).sub(camDir.multiplyScalar(0.5));
+            playerMesh.position.y = 1; 
+            playerMesh.rotation.y = Math.atan2(camDir.x, camDir.z);
         }
 
-        // 3. 弾の更新
-        for (let i = bullets.length - 1; i >= 0; i--) {
+        // 弾処理
+        for(let i=bullets.length-1; i>=0; i--) {
             const b = bullets[i];
             b.position.add(b.userData.vel.clone().multiplyScalar(delta));
-            b.userData.vel.y -= CONFIG.GRAVITY * delta * 0.5; // 少し重力
-
-            // 地面衝突
-            if (b.position.y < 0.2) {
-                createInk(b.position.x, b.position.z, 1.5);
-                scene.remove(b);
-                bullets.splice(i, 1);
-                continue;
-            }
-
-            // 敵衝突
+            b.userData.vel.y -= 10 * delta; // 重力
+            b.userData.life--;
+            
             let hit = false;
-            for (let j = enemies.length - 1; j >= 0; j--) {
-                const e = enemies[j];
-                if (b.position.distanceTo(e.position) < 1.0) {
-                    e.userData.hp--;
-                    e.material.color.setHex(0xFFFFFF); // ヒット時点滅
-                    setTimeout(()=>e.material.color.setHex(CONFIG.ENEMY_COLOR), 100);
-                    
-                    if (e.userData.hp <= 0) defeatEnemy(j);
-                    
-                    scene.remove(b);
-                    bullets.splice(i, 1);
-                    hit = true;
-                    break;
+            // 敵判定
+            for(let j=enemies.length-1; j>=0; j--) {
+                if(b.position.distanceTo(enemies[j].position) < 1) {
+                    enemies[j].userData.hp--;
+                    enemies[j].material.color.setHex(0xFFFFFF);
+                    setTimeout(()=>enemies[j] && enemies[j].material.color.setHex(CONFIG.ENEMY_COLOR), 100);
+                    if(enemies[j].userData.hp<=0) {
+                        explode(enemies[j].position, 3);
+                    }
+                    hit = true; break;
                 }
             }
-            if(hit) continue;
-
-            // 寿命
-            b.userData.life--;
-            if (b.userData.life <= 0) {
-                scene.remove(b);
-                bullets.splice(i, 1);
+            
+            if(hit || b.position.y < 0.2 || b.userData.life <= 0) {
+                if(b.position.y < 0.2) createInk(b.position.x, b.position.z, 1.5);
+                scene.remove(b); bullets.splice(i, 1);
             }
         }
 
-        // 4. ボムの更新
-        for (let i = bombs.length - 1; i >= 0; i--) {
+        // ボム処理
+        for(let i=bombs.length-1; i>=0; i--) {
             const b = bombs[i];
-            
-            if (b.userData.state === 'flying') {
+            if(b.userData.state === 'flying') {
                 b.position.add(b.userData.vel.clone().multiplyScalar(delta));
                 b.userData.vel.y -= CONFIG.GRAVITY * delta;
-                
-                // ボムの回転
-                b.rotation.x += 10 * delta;
-                b.rotation.z += 10 * delta;
-
-                if (b.position.y < 0.2) {
-                    b.position.y = 0.2;
-                    b.userData.state = 'waiting';
-                    b.userData.vel.set(0,0,0);
-                    // 地面についたら赤く点滅させるなど
+                b.rotation.x += 10*delta;
+                if(b.position.y < 0.2) {
+                    b.position.y = 0.2; b.userData.state = 'waiting'; b.userData.vel.set(0,0,0);
                     b.material.emissive = new THREE.Color(0xFF0000);
                 }
-            } else if (b.userData.state === 'waiting') {
+            } else {
                 b.userData.timer += delta;
-                // 1秒後に爆発
-                if (b.userData.timer > 1.0) {
-                    performExplosion(b.position, 5, 10); // 爆発半径5
-                    scene.remove(b);
-                    bombs.splice(i, 1);
-                }
+                if(b.userData.timer > 1.0) { explode(b.position, 6); scene.remove(b); bombs.splice(i, 1); }
             }
         }
 
-        // 5. 敵のAI
+        // 敵AI
         enemies.forEach(e => {
-            const dir = new THREE.Vector3().subVectors(playerMesh.position, e.position).normalize();
-            dir.y = 0;
-            e.position.add(dir.multiplyScalar(e.userData.speed * delta));
+            const d = new THREE.Vector3().subVectors(playerMesh.position, e.position).normalize();
+            d.y = 0;
+            e.position.add(d.multiplyScalar(5 * delta)); // スピード
             e.lookAt(playerMesh.position);
-
-            // プレイヤー接触
-            if (e.position.distanceTo(playerMesh.position) < 1.0 && !isSuperLanding) {
-                gameOver(false);
-            }
+            if(e.position.distanceTo(playerMesh.position) < 1 && !isSuperLanding) endGame(false);
         });
 
         renderer.render(scene, camera);
     }
-
 </script>
 </body>
 </html>
