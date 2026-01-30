@@ -2,141 +2,156 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Mini Splatoon TPS</title>
+<title>Mini Splatoon TPS FIX</title>
 <style>
-body{background:#111;color:#fff;text-align:center}
+body{margin:0;background:#111;color:#fff;text-align:center}
 canvas{background:#222;cursor:crosshair}
 </style>
 </head>
 <body>
 
-<h2 id="countdown">READY</h2>
-<p id="info"></p>
-<canvas id="c" width="600" height="600"></canvas>
+<h3 id="cd">READY</h3>
+<p id="ui"></p>
+<canvas id="cv" width="800" height="600"></canvas>
 
 <script>
-const c=document.getElementById("c"),ctx=c.getContext("2d");
-const SIZE=10,GRID=60;
-let map=[...Array(GRID)].map(()=>Array(GRID).fill(0));
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d");
+const TILE=10,MAP=100;
+let map=[...Array(MAP)].map(()=>Array(MAP).fill(0));
 
-let start=false,cd=3;
-let mouse={x:0,y:0},keys={};
-let bombs=[],shots=[];
+let keys={},mouse={x:0,y:0};
+let start=false,count=3;
 
-const spawnP={x:5,y:5},spawnE={x:54,y:54};
-
-let p={...spawnP,hp:100,cd:0,bombCD:0,dead:false};
-let e={...spawnE,hp:100,cd:0,bombCD:0,dead:false};
-
-c.onmousemove=e2=>{mouse.x=e2.offsetX;mouse.y=e2.offsetY;}
 document.onkeydown=e=>keys[e.key.toLowerCase()]=true;
 document.onkeyup=e=>keys[e.key.toLowerCase()]=false;
+cv.onmousemove=e=>{mouse.x=e.offsetX;mouse.y=e.offsetY;}
 
-c.onclick=()=>{
- if(!start||p.dead||p.cd>0)return;
- shots.push({x:p.x,y:p.y,dx:mouse.x/SIZE-p.x,dy:mouse.y/SIZE-p.y,from:"p"});
- p.cd=10;
+const spawnP={x:10,y:10},spawnE={x:80,y:80};
+
+let p={...spawnP,hp:100,cd:0,bomb:0,skill:0,dead:false};
+let e={...spawnE,hp:100,dead:false};
+
+let shots=[],bombs=[];
+
+cv.onclick=()=>{
+ if(!start||p.cd||p.dead||keys["shift"])return;
+ let ang=Math.atan2(mouse.y-cv.height/2,mouse.x-cv.width/2);
+ shots.push({x:p.x,y:p.y,dx:Math.cos(ang),dy:Math.sin(ang),from:"p"});
+ p.cd=8;
 };
 
-function bombThrow(who){
- if(who.bombCD>0)return;
- bombs.push({x:who.x,y:who.y,t:60,from:who===p?"p":"e"});
- who.bombCD=180;
+function throwBomb(who){
+ if(who.bomb>0)return;
+ bombs.push({x:who.x,y:who.y,t:50,from:who===p?"p":"e"});
+ who.bomb=180;
 }
 
-function move(o,speed){
- if(keys["w"])o.y-=speed;
- if(keys["s"])o.y+=speed;
- if(keys["a"])o.x-=speed;
- if(keys["d"])o.x+=speed;
- o.x=Math.max(0,Math.min(GRID-1,o.x));
- o.y=Math.max(0,Math.min(GRID-1,o.y));
+function superJump(){
+ if(p.skill<100)return;
+ for(let y=-6;y<=6;y++)for(let x=-6;x<=6;x++){
+  let px=Math.floor(p.x+x),py=Math.floor(p.y+y);
+  if(map[py]?.[px]!==undefined)map[py][px]=1;
+ }
+ p.skill=0;
 }
 
-function shootUpdate(){
+function move(o,s){
+ if(keys["w"])o.y-=s;
+ if(keys["s"])o.y+=s;
+ if(keys["a"])o.x-=s;
+ if(keys["d"])o.x+=s;
+ o.x=Math.max(0,Math.min(MAP-1,o.x));
+ o.y=Math.max(0,Math.min(MAP-1,o.y));
+}
+
+function updateShots(){
  shots=shots.filter(s=>{
-  s.x+=s.dx*0.2; s.y+=s.dy*0.2;
+  s.x+=s.dx*0.6;
+  s.y+=s.dy*0.6;
   let t=s.from==="p"?e:p;
-  if(Math.hypot(s.x-t.x,s.y-t.y)<0.5){
-    t.hp-=20;
+  if(Math.hypot(s.x-t.x,s.y-t.y)<0.6){
+    t.hp-=25;
     return false;
   }
-  return s.x>=0&&s.y>=0&&s.x<GRID&&s.y<GRID;
+  return s.x>0&&s.y>0&&s.x<MAP&&s.y<MAP;
  });
 }
 
-function bombUpdate(){
+function updateBombs(){
  bombs=bombs.filter(b=>{
   b.t--;
   if(b.t<=0){
-    for(let y=-3;y<=3;y++)for(let x=-3;x<=3;x++){
-      let px=b.x+x,py=b.y+y;
-      if(map[py]?.[px]!==undefined){
-        map[py][px]=b.from==="p"?1:2;
-        let t=b.from==="p"?e:p;
-        if(Math.hypot(px-t.x,py-t.y)<3)t.hp-=30;
-      }
+   for(let y=-4;y<=4;y++)for(let x=-4;x<=4;x++){
+    let px=b.x+x,py=b.y+y;
+    if(map[py]?.[px]!==undefined){
+      map[py][px]=b.from==="p"?1:2;
+      let t=b.from==="p"?e:p;
+      if(Math.hypot(px-t.x,py-t.y)<4)t.hp-=40;
     }
-    return false;
+   }
+   return false;
   }
   return true;
  });
 }
 
-function respawn(o,sp){
- o.x=sp.x;o.y=sp.y;o.hp=100;o.dead=false;
+function respawn(o,s){
+ o.x=s.x;o.y=s.y;o.hp=100;o.dead=false;
 }
 
 function loop(){
- ctx.clearRect(0,0,600,600);
+ ctx.clearRect(0,0,cv.width,cv.height);
 
  if(start){
   if(!p.dead){
    let squid=keys["shift"];
-   move(p,squid?0.15:0.08);
+   move(p,squid?0.18:0.1);
    map[Math.floor(p.y)][Math.floor(p.x)]=1;
-   if(keys["q"])bombThrow(p);
+   p.skill=Math.min(100,p.skill+0.05);
+   if(keys["q"])throwBomb(p);
+   if(keys["e"])superJump();
   }
 
   if(!e.dead){
-   if(Math.random()<0.02)bombThrow(e);
-   if(Math.random()<0.1){
-     e.x+=Math.sign(p.x-e.x)*0.05;
-     e.y+=Math.sign(p.y-e.y)*0.05;
-   }
+   e.x+=Math.sign(p.x-e.x)*0.1;
+   e.y+=Math.sign(p.y-e.y)*0.1;
+   if(Math.random()<0.01)throwBomb(e);
    map[Math.floor(e.y)][Math.floor(e.x)]=2;
   }
 
-  shootUpdate(); bombUpdate();
+  updateShots();updateBombs();
  }
 
  if(p.hp<=0&&!p.dead){p.dead=true;setTimeout(()=>respawn(p,spawnP),2000);}
  if(e.hp<=0&&!e.dead){e.dead=true;setTimeout(()=>respawn(e,spawnE),2000);}
 
- for(let y=0;y<GRID;y++)for(let x=0;x<GRID;x++){
-  if(map[y][x]===1)ctx.fillStyle="#00aaff";
-  else if(map[y][x]===2)ctx.fillStyle="#ff5555";
-  else continue;
-  ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE);
+ let camX=p.x*TILE-cv.width/2;
+ let camY=p.y*TILE-cv.height/2;
+
+ for(let y=0;y<MAP;y++)for(let x=0;x<MAP;x++){
+  if(map[y][x]==0)continue;
+  ctx.fillStyle=map[y][x]==1?"#00aaff":"#ff5555";
+  ctx.fillRect(x*TILE-camX,y*TILE-camY,TILE,TILE);
  }
 
- ctx.fillStyle="white";ctx.fillRect(p.x*SIZE,p.y*SIZE,SIZE,SIZE);
- ctx.fillStyle="red";ctx.fillRect(e.x*SIZE,e.y*SIZE,SIZE,SIZE);
+ ctx.fillStyle="#fff";
+ ctx.fillRect(p.x*TILE-camX,p.y*TILE-camY,TILE,TILE);
+ ctx.fillStyle="red";
+ ctx.fillRect(e.x*TILE-camX,e.y*TILE-camY,TILE,TILE);
 
  p.cd=Math.max(0,p.cd-1);
- p.bombCD=Math.max(0,p.bombCD-1);
- e.bombCD=Math.max(0,e.bombCD-1);
+ p.bomb=Math.max(0,p.bomb-1);
 
- document.getElementById("info").textContent=
-  `HP:${p.hp} ボムCT:${p.bombCD}`;
+ document.getElementById("ui").textContent=
+  `HP:${p.hp} ボムCT:${p.bomb} SP:${Math.floor(p.skill)}`;
 
  requestAnimationFrame(loop);
 }
 
-let timer=setInterval(()=>{
- document.getElementById("countdown").textContent=cd>0?cd:"GO!";
- cd--;
- if(cd<0){start=true;document.getElementById("countdown").textContent="";clearInterval(timer);}
+let t=setInterval(()=>{
+ document.getElementById("cd").textContent=count>0?count:"GO!";
+ count--;
+ if(count<0){start=true;document.getElementById("cd").textContent="";clearInterval(t);}
 },1000);
 
 loop();
