@@ -2,17 +2,18 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Mini Splatoon-like Game</title>
+<title>Mini Splatoon-like Game+</title>
 <style>
-  body { background:#111; color:white; text-align:center; font-family:sans-serif; }
+  body { background:#111; color:#fff; text-align:center; font-family:sans-serif; }
   canvas { background:#333; margin-top:10px; }
 </style>
 </head>
 <body>
 
-<h2>Mini Splatoon風ゲーム</h2>
+<h2>Mini Splatoon風ゲーム＋</h2>
 <p id="timer">残り時間: 180</p>
 <p id="score">自分: 0 / 敵: 0</p>
+<p id="skill">スーパー着地: 0%</p>
 
 <canvas id="game" width="500" height="500"></canvas>
 
@@ -25,21 +26,49 @@ const COLS = canvas.width / SIZE;
 const ROWS = canvas.height / SIZE;
 
 let field = Array.from({length: ROWS}, () => Array(COLS).fill(0));
-// 0=未塗装 1=自分 2=敵
 
 let player = {x: 5, y: 5};
-let enemy = {x: 40, y: 40};
+let enemy  = {x: 40, y: 40};
 
+let keys = {};
+let bombs = [];
+let skillGauge = 0;
 let time = 180;
+let frame = 0;
 
 document.addEventListener("keydown", e => {
-  if (e.key === "w") player.y--;
-  if (e.key === "s") player.y++;
-  if (e.key === "a") player.x--;
-  if (e.key === "d") player.x++;
+  keys[e.key.toLowerCase()] = true;
+
+  // ボム
+  if(e.code === "Space"){
+    bombs.push({x: player.x, y: player.y, timer: 60});
+  }
+
+  // スーパー着地
+  if(e.key === "Shift" && skillGauge >= 100){
+    superJump();
+    skillGauge = 0;
+  }
 });
 
-function enemyMove(){
+document.addEventListener("keyup", e => {
+  keys[e.key.toLowerCase()] = false;
+});
+
+function clamp(o){
+  o.x = Math.max(0, Math.min(COLS-1, o.x));
+  o.y = Math.max(0, Math.min(ROWS-1, o.y));
+}
+
+function movePlayer(){
+  if(keys["w"]) player.y--;
+  if(keys["s"]) player.y++;
+  if(keys["a"]) player.x--;
+  if(keys["d"]) player.x++;
+}
+
+function moveEnemy(){
+  if(frame % 2 !== 0) return; // 敵を遅く
   const d = Math.floor(Math.random()*4);
   if(d===0) enemy.x++;
   if(d===1) enemy.x--;
@@ -47,19 +76,45 @@ function enemyMove(){
   if(d===3) enemy.y--;
 }
 
-function clamp(obj){
-  obj.x = Math.max(0, Math.min(COLS-1, obj.x));
-  obj.y = Math.max(0, Math.min(ROWS-1, obj.y));
+function superJump(){
+  player.x = Math.floor(COLS/2);
+  player.y = Math.floor(ROWS/2);
+  for(let y=-4;y<=4;y++){
+    for(let x=-4;x<=4;x++){
+      let px = player.x + x;
+      let py = player.y + y;
+      if(field[py]?.[px] !== undefined) field[py][px] = 1;
+    }
+  }
+}
+
+function updateBombs(){
+  bombs.forEach(b => b.timer--);
+  bombs = bombs.filter(b=>{
+    if(b.timer<=0){
+      for(let y=-3;y<=3;y++){
+        for(let x=-3;x<=3;x++){
+          let px=b.x+x, py=b.y+y;
+          if(field[py]?.[px] !== undefined) field[py][px]=1;
+        }
+      }
+      return false;
+    }
+    return true;
+  });
 }
 
 function update(){
+  movePlayer();
+  moveEnemy();
   clamp(player);
   clamp(enemy);
 
   field[player.y][player.x] = 1;
   field[enemy.y][enemy.x] = 2;
 
-  enemyMove();
+  skillGauge = Math.min(100, skillGauge + 0.05);
+  updateBombs();
 }
 
 function draw(){
@@ -74,7 +129,7 @@ function draw(){
     }
   }
 
-  ctx.fillStyle="white";
+  ctx.fillStyle="#fff";
   ctx.fillRect(player.x*SIZE,player.y*SIZE,SIZE,SIZE);
   ctx.fillStyle="red";
   ctx.fillRect(enemy.x*SIZE,enemy.y*SIZE,SIZE,SIZE);
@@ -82,21 +137,18 @@ function draw(){
 
 function countScore(){
   let p=0,e=0;
-  for(let row of field){
-    for(let c of row){
-      if(c===1) p++;
-      if(c===2) e++;
+  for(let r of field){
+    for(let c of r){
+      if(c===1)p++;
+      if(c===2)e++;
     }
   }
-  document.getElementById("score").textContent =
-    `自分: ${p} / 敵: ${e}`;
-  return {p,e};
+  document.getElementById("score").textContent=`自分: ${p} / 敵: ${e}`;
 }
 
 setInterval(()=>{
   if(time<=0){
-    const s=countScore();
-    alert(s.p>s.e ? "勝ち！" : "負け…");
+    alert("試合終了！");
     location.reload();
   }
   time--;
@@ -104,9 +156,12 @@ setInterval(()=>{
 },1000);
 
 function loop(){
+  frame++;
   update();
   draw();
   countScore();
+  document.getElementById("skill").textContent =
+    `スーパー着地: ${Math.floor(skillGauge)}%`;
   requestAnimationFrame(loop);
 }
 loop();
