@@ -2,168 +2,143 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Mini Splatoon-like Game+</title>
+<title>Mini Splatoon TPS</title>
 <style>
-  body { background:#111; color:#fff; text-align:center; font-family:sans-serif; }
-  canvas { background:#333; margin-top:10px; }
+body{background:#111;color:#fff;text-align:center}
+canvas{background:#222;cursor:crosshair}
 </style>
 </head>
 <body>
 
-<h2>Mini Splatoon風ゲーム＋</h2>
-<p id="timer">残り時間: 180</p>
-<p id="score">自分: 0 / 敵: 0</p>
-<p id="skill">スーパー着地: 0%</p>
-
-<canvas id="game" width="500" height="500"></canvas>
+<h2 id="countdown">READY</h2>
+<p id="info"></p>
+<canvas id="c" width="600" height="600"></canvas>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const c=document.getElementById("c"),ctx=c.getContext("2d");
+const SIZE=10,GRID=60;
+let map=[...Array(GRID)].map(()=>Array(GRID).fill(0));
 
-const SIZE = 10;
-const COLS = canvas.width / SIZE;
-const ROWS = canvas.height / SIZE;
+let start=false,cd=3;
+let mouse={x:0,y:0},keys={};
+let bombs=[],shots=[];
 
-let field = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+const spawnP={x:5,y:5},spawnE={x:54,y:54};
 
-let player = {x: 5, y: 5};
-let enemy  = {x: 40, y: 40};
+let p={...spawnP,hp:100,cd:0,bombCD:0,dead:false};
+let e={...spawnE,hp:100,cd:0,bombCD:0,dead:false};
 
-let keys = {};
-let bombs = [];
-let skillGauge = 0;
-let time = 180;
-let frame = 0;
+c.onmousemove=e2=>{mouse.x=e2.offsetX;mouse.y=e2.offsetY;}
+document.onkeydown=e=>keys[e.key.toLowerCase()]=true;
+document.onkeyup=e=>keys[e.key.toLowerCase()]=false;
 
-document.addEventListener("keydown", e => {
-  keys[e.key.toLowerCase()] = true;
+c.onclick=()=>{
+ if(!start||p.dead||p.cd>0)return;
+ shots.push({x:p.x,y:p.y,dx:mouse.x/SIZE-p.x,dy:mouse.y/SIZE-p.y,from:"p"});
+ p.cd=10;
+};
 
-  // ボム
-  if(e.code === "Space"){
-    bombs.push({x: player.x, y: player.y, timer: 60});
+function bombThrow(who){
+ if(who.bombCD>0)return;
+ bombs.push({x:who.x,y:who.y,t:60,from:who===p?"p":"e"});
+ who.bombCD=180;
+}
+
+function move(o,speed){
+ if(keys["w"])o.y-=speed;
+ if(keys["s"])o.y+=speed;
+ if(keys["a"])o.x-=speed;
+ if(keys["d"])o.x+=speed;
+ o.x=Math.max(0,Math.min(GRID-1,o.x));
+ o.y=Math.max(0,Math.min(GRID-1,o.y));
+}
+
+function shootUpdate(){
+ shots=shots.filter(s=>{
+  s.x+=s.dx*0.2; s.y+=s.dy*0.2;
+  let t=s.from==="p"?e:p;
+  if(Math.hypot(s.x-t.x,s.y-t.y)<0.5){
+    t.hp-=20;
+    return false;
   }
-
-  // スーパー着地
-  if(e.key === "Shift" && skillGauge >= 100){
-    superJump();
-    skillGauge = 0;
-  }
-});
-
-document.addEventListener("keyup", e => {
-  keys[e.key.toLowerCase()] = false;
-});
-
-function clamp(o){
-  o.x = Math.max(0, Math.min(COLS-1, o.x));
-  o.y = Math.max(0, Math.min(ROWS-1, o.y));
+  return s.x>=0&&s.y>=0&&s.x<GRID&&s.y<GRID;
+ });
 }
 
-function movePlayer(){
-  if(keys["w"]) player.y--;
-  if(keys["s"]) player.y++;
-  if(keys["a"]) player.x--;
-  if(keys["d"]) player.x++;
-}
-
-function moveEnemy(){
-  if(frame % 2 !== 0) return; // 敵を遅く
-  const d = Math.floor(Math.random()*4);
-  if(d===0) enemy.x++;
-  if(d===1) enemy.x--;
-  if(d===2) enemy.y++;
-  if(d===3) enemy.y--;
-}
-
-function superJump(){
-  player.x = Math.floor(COLS/2);
-  player.y = Math.floor(ROWS/2);
-  for(let y=-4;y<=4;y++){
-    for(let x=-4;x<=4;x++){
-      let px = player.x + x;
-      let py = player.y + y;
-      if(field[py]?.[px] !== undefined) field[py][px] = 1;
-    }
-  }
-}
-
-function updateBombs(){
-  bombs.forEach(b => b.timer--);
-  bombs = bombs.filter(b=>{
-    if(b.timer<=0){
-      for(let y=-3;y<=3;y++){
-        for(let x=-3;x<=3;x++){
-          let px=b.x+x, py=b.y+y;
-          if(field[py]?.[px] !== undefined) field[py][px]=1;
-        }
+function bombUpdate(){
+ bombs=bombs.filter(b=>{
+  b.t--;
+  if(b.t<=0){
+    for(let y=-3;y<=3;y++)for(let x=-3;x<=3;x++){
+      let px=b.x+x,py=b.y+y;
+      if(map[py]?.[px]!==undefined){
+        map[py][px]=b.from==="p"?1:2;
+        let t=b.from==="p"?e:p;
+        if(Math.hypot(px-t.x,py-t.y)<3)t.hp-=30;
       }
-      return false;
     }
-    return true;
-  });
-}
-
-function update(){
-  movePlayer();
-  moveEnemy();
-  clamp(player);
-  clamp(enemy);
-
-  field[player.y][player.x] = 1;
-  field[enemy.y][enemy.x] = 2;
-
-  skillGauge = Math.min(100, skillGauge + 0.05);
-  updateBombs();
-}
-
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  for(let y=0;y<ROWS;y++){
-    for(let x=0;x<COLS;x++){
-      if(field[y][x]===1) ctx.fillStyle="#00aaff";
-      else if(field[y][x]===2) ctx.fillStyle="#ff5555";
-      else continue;
-      ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE);
-    }
+    return false;
   }
-
-  ctx.fillStyle="#fff";
-  ctx.fillRect(player.x*SIZE,player.y*SIZE,SIZE,SIZE);
-  ctx.fillStyle="red";
-  ctx.fillRect(enemy.x*SIZE,enemy.y*SIZE,SIZE,SIZE);
+  return true;
+ });
 }
 
-function countScore(){
-  let p=0,e=0;
-  for(let r of field){
-    for(let c of r){
-      if(c===1)p++;
-      if(c===2)e++;
-    }
-  }
-  document.getElementById("score").textContent=`自分: ${p} / 敵: ${e}`;
+function respawn(o,sp){
+ o.x=sp.x;o.y=sp.y;o.hp=100;o.dead=false;
 }
-
-setInterval(()=>{
-  if(time<=0){
-    alert("試合終了！");
-    location.reload();
-  }
-  time--;
-  document.getElementById("timer").textContent=`残り時間: ${time}`;
-},1000);
 
 function loop(){
-  frame++;
-  update();
-  draw();
-  countScore();
-  document.getElementById("skill").textContent =
-    `スーパー着地: ${Math.floor(skillGauge)}%`;
-  requestAnimationFrame(loop);
+ ctx.clearRect(0,0,600,600);
+
+ if(start){
+  if(!p.dead){
+   let squid=keys["shift"];
+   move(p,squid?0.15:0.08);
+   map[Math.floor(p.y)][Math.floor(p.x)]=1;
+   if(keys["q"])bombThrow(p);
+  }
+
+  if(!e.dead){
+   if(Math.random()<0.02)bombThrow(e);
+   if(Math.random()<0.1){
+     e.x+=Math.sign(p.x-e.x)*0.05;
+     e.y+=Math.sign(p.y-e.y)*0.05;
+   }
+   map[Math.floor(e.y)][Math.floor(e.x)]=2;
+  }
+
+  shootUpdate(); bombUpdate();
+ }
+
+ if(p.hp<=0&&!p.dead){p.dead=true;setTimeout(()=>respawn(p,spawnP),2000);}
+ if(e.hp<=0&&!e.dead){e.dead=true;setTimeout(()=>respawn(e,spawnE),2000);}
+
+ for(let y=0;y<GRID;y++)for(let x=0;x<GRID;x++){
+  if(map[y][x]===1)ctx.fillStyle="#00aaff";
+  else if(map[y][x]===2)ctx.fillStyle="#ff5555";
+  else continue;
+  ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE);
+ }
+
+ ctx.fillStyle="white";ctx.fillRect(p.x*SIZE,p.y*SIZE,SIZE,SIZE);
+ ctx.fillStyle="red";ctx.fillRect(e.x*SIZE,e.y*SIZE,SIZE,SIZE);
+
+ p.cd=Math.max(0,p.cd-1);
+ p.bombCD=Math.max(0,p.bombCD-1);
+ e.bombCD=Math.max(0,e.bombCD-1);
+
+ document.getElementById("info").textContent=
+  `HP:${p.hp} ボムCT:${p.bombCD}`;
+
+ requestAnimationFrame(loop);
 }
+
+let timer=setInterval(()=>{
+ document.getElementById("countdown").textContent=cd>0?cd:"GO!";
+ cd--;
+ if(cd<0){start=true;document.getElementById("countdown").textContent="";clearInterval(timer);}
+},1000);
+
 loop();
 </script>
 </body>
