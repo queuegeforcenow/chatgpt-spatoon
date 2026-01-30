@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Mini Splatoon-like Game</title>
+<style>
+  body { background:#111; color:white; text-align:center; font-family:sans-serif; }
+  canvas { background:#333; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<h2>Mini Splatoon風ゲーム</h2>
+<p id="timer">残り時間: 180</p>
+<p id="score">自分: 0 / 敵: 0</p>
+
+<canvas id="game" width="500" height="500"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const SIZE = 10;
+const COLS = canvas.width / SIZE;
+const ROWS = canvas.height / SIZE;
+
+let field = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+// 0=未塗装 1=自分 2=敵
+
+let player = {x: 5, y: 5};
+let enemy = {x: 40, y: 40};
+
+let time = 180;
+
+document.addEventListener("keydown", e => {
+  if (e.key === "w") player.y--;
+  if (e.key === "s") player.y++;
+  if (e.key === "a") player.x--;
+  if (e.key === "d") player.x++;
+});
+
+function enemyMove(){
+  const d = Math.floor(Math.random()*4);
+  if(d===0) enemy.x++;
+  if(d===1) enemy.x--;
+  if(d===2) enemy.y++;
+  if(d===3) enemy.y--;
+}
+
+function clamp(obj){
+  obj.x = Math.max(0, Math.min(COLS-1, obj.x));
+  obj.y = Math.max(0, Math.min(ROWS-1, obj.y));
+}
+
+function update(){
+  clamp(player);
+  clamp(enemy);
+
+  field[player.y][player.x] = 1;
+  field[enemy.y][enemy.x] = 2;
+
+  enemyMove();
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  for(let y=0;y<ROWS;y++){
+    for(let x=0;x<COLS;x++){
+      if(field[y][x]===1) ctx.fillStyle="#00aaff";
+      else if(field[y][x]===2) ctx.fillStyle="#ff5555";
+      else continue;
+      ctx.fillRect(x*SIZE,y*SIZE,SIZE,SIZE);
+    }
+  }
+
+  ctx.fillStyle="white";
+  ctx.fillRect(player.x*SIZE,player.y*SIZE,SIZE,SIZE);
+  ctx.fillStyle="red";
+  ctx.fillRect(enemy.x*SIZE,enemy.y*SIZE,SIZE,SIZE);
+}
+
+function countScore(){
+  let p=0,e=0;
+  for(let row of field){
+    for(let c of row){
+      if(c===1) p++;
+      if(c===2) e++;
+    }
+  }
+  document.getElementById("score").textContent =
+    `自分: ${p} / 敵: ${e}`;
+  return {p,e};
+}
+
+setInterval(()=>{
+  if(time<=0){
+    const s=countScore();
+    alert(s.p>s.e ? "勝ち！" : "負け…");
+    location.reload();
+  }
+  time--;
+  document.getElementById("timer").textContent=`残り時間: ${time}`;
+},1000);
+
+function loop(){
+  update();
+  draw();
+  countScore();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
